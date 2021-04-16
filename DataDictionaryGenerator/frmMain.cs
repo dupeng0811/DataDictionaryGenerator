@@ -4,10 +4,7 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Windows.Forms;
 using System.IO;
-using System.Linq;
 using DataDictionaryGenerator.Model;
-using NPOI.XWPF.UserModel;
-using NPOI.OpenXmlFormats.Wordprocessing;
 using RazorEngine;
 using RazorEngine.Templating;
 
@@ -15,12 +12,11 @@ namespace DataDictionaryGenerator
 {
     public partial class frmMain : Form
     {
-        private DataTable dtInfo;
+        private readonly DataTable _dtInfo;
         public frmMain()
         {
             InitializeComponent();
-            dtInfo = new DataTable();
-            txtCnnString.Text = "Data Source=192.168.1.103;Initial Catalog=Wechat_Hermes;UID=sa;pwd=M4jiE9J8OMUt";
+            _dtInfo = new DataTable();
         }
 
         #region 自定义方法
@@ -53,7 +49,7 @@ namespace DataDictionaryGenerator
         public ReturnMessage GetInfo(string cnnString)
         {
             ReturnMessage retMsg = new ReturnMessage(string.Empty, true);
-            dtInfo.Rows.Clear();
+            _dtInfo.Rows.Clear();
             string strQry = @"SELECT TOP (100) PERCENT d.name                  AS 表名,
                          CASE
                              WHEN a.colorder = 1 THEN isnull(f.value, '')
@@ -102,8 +98,8 @@ ORDER BY d.name, 字段序号";
             try
             {
                 SqlDataAdapter da = new SqlDataAdapter(strQry, cnnString);
-                da.Fill(dtInfo);
-                dgvData.DataSource = dtInfo;
+                da.Fill(_dtInfo);
+                dgvData.DataSource = _dtInfo;
                 return retMsg;
             }
             catch (Exception ex)
@@ -114,9 +110,6 @@ ORDER BY d.name, 字段序号";
             }
         }
 
-
-
-
         private ReturnMessage WriteMarkdown()
         {
             ReturnMessage retMsg = new ReturnMessage(string.Empty, true);
@@ -124,7 +117,7 @@ ORDER BY d.name, 字段序号";
             {
                 Dictionary<string, List<TableColumnInfo>> templateDatas = new Dictionary<string, List<TableColumnInfo>>();
                 int index = 1;
-                foreach (DataRow dr in dtInfo.Rows)
+                foreach (DataRow dr in _dtInfo.Rows)
                 {
                     string tableName = dr["表名"].ToString();
                     if (!templateDatas.ContainsKey(tableName))
@@ -141,8 +134,6 @@ ORDER BY d.name, 字段序号";
                         TableName = tableName
                     });
                 }
-                
-                
                 string templatePath = Application.StartupPath + "\\Template\\template.cshtml";
                 string templateContent = File.ReadAllText(templatePath, System.Text.Encoding.Default);
                 string result = Engine.Razor.RunCompile(templateContent, "templateKey", null, templateDatas);
@@ -159,7 +150,6 @@ ORDER BY d.name, 字段序号";
                 sw.Flush();
                 sw.Close();
 
-                
                 return retMsg;
             }
             catch (Exception ex)
@@ -169,142 +159,7 @@ ORDER BY d.name, 字段序号";
                 return retMsg;
             }
         }
-
-        private ReturnMessage WriteDoc()
-        {
-            ReturnMessage retMsg = new ReturnMessage(string.Empty, true);
-            FileStream fs = null;
-            try
-            {
-                XWPFDocument doc = new XWPFDocument();
-                XWPFTable table = null;
-                int index = 1;
-                //把内存中的DataTable写到Docx文件里
-                foreach (DataRow dr in dtInfo.Rows)
-                {
-                    if (dr["表名"] != DBNull.Value && !string.IsNullOrEmpty(dr["表名"].ToString()))
-                    {
-                        //表名，以段落表示
-                        CT_P ctp = doc.Document.body.AddNewP();
-                        //XWPFParagraph p = doc.CreateParagraph();
-                        XWPFParagraph p = new XWPFParagraph(ctp, doc);
-                        XWPFRun r = p.CreateRun();
-                        //设置字体
-                        r.GetCTR().AddNewRPr().AddNewRFonts().ascii = "宋体";
-                        r.GetCTR().AddNewRPr().AddNewRFonts().eastAsia = "宋体";
-                        r.GetCTR().AddNewRPr().AddNewRFonts().hint = ST_Hint.eastAsia;
-                        r.GetCTR().AddNewRPr().AddNewSz().val = (ulong)32;//3号字体;
-                        r.GetCTR().AddNewRPr().AddNewSzCs().val = (ulong)32;
-                        //设置行间距
-                        //单倍为默认值（240twip）不需设置，1.5倍=240X1.5=360twip，2倍=240X2=480twip
-                        ctp.AddNewPPr().AddNewSpacing().line = "720";
-                        //ctp.AddNewPPr().AddNewSpacing().lineRule = ST_LineSpacingRule.exact;
-                        //设置段落文本
-                        r.SetText(index.ToString() + "." + dr["表名"].ToString());
-
-                        //表结构，以表格显示
-                        CT_Tbl m_CTTbl = doc.Document.body.AddNewTbl();
-                        table = doc.CreateTable(1, 9);
-                        //标题行(固定)
-                        //列宽
-                        CT_TcPr mPr = table.GetRow(0).GetCell(0).GetCTTc().AddNewTcPr();
-                        mPr.tcW = new CT_TblWidth();
-                        mPr.tcW.w = "900";
-                        mPr.tcW.type = ST_TblWidth.dxa;
-                        mPr = table.GetRow(0).GetCell(1).GetCTTc().AddNewTcPr();
-                        mPr.tcW = new CT_TblWidth();
-                        mPr.tcW.w = "1500";
-                        mPr.tcW.type = ST_TblWidth.dxa;
-                        mPr = table.GetRow(0).GetCell(2).GetCTTc().AddNewTcPr();
-                        mPr.tcW = new CT_TblWidth();
-                        mPr.tcW.w = "500";
-                        mPr.tcW.type = ST_TblWidth.dxa;
-                        mPr = table.GetRow(0).GetCell(3).GetCTTc().AddNewTcPr();
-                        mPr.tcW = new CT_TblWidth();
-                        mPr.tcW.w = "1000";
-                        mPr.tcW.type = ST_TblWidth.dxa;
-                        mPr = table.GetRow(0).GetCell(4).GetCTTc().AddNewTcPr();
-                        mPr.tcW = new CT_TblWidth();
-                        mPr.tcW.w = "500";
-                        mPr.tcW.type = ST_TblWidth.dxa;
-                        mPr = table.GetRow(0).GetCell(6).GetCTTc().AddNewTcPr();
-                        mPr.tcW = new CT_TblWidth();
-                        mPr.tcW.w = "900";
-                        mPr.tcW.type = ST_TblWidth.dxa;
-                        mPr = table.GetRow(0).GetCell(7).GetCTTc().AddNewTcPr();
-                        mPr.tcW = new CT_TblWidth();
-                        mPr.tcW.w = "800";
-                        mPr.tcW.type = ST_TblWidth.dxa;
-                        mPr = table.GetRow(0).GetCell(8).GetCTTc().AddNewTcPr();
-                        mPr.tcW = new CT_TblWidth();
-                        mPr.tcW.w = "1500";
-                        mPr.tcW.type = ST_TblWidth.dxa;
-                        //填充文字
-                        table.GetRow(0).GetCell(0).SetText("字段序号");
-                        table.GetRow(0).GetCell(1).SetText("字段名");
-                        table.GetRow(0).GetCell(2).SetText("主键");
-                        table.GetRow(0).GetCell(3).SetText("类型");
-                        table.GetRow(0).GetCell(4).SetText("长度");
-                        table.GetRow(0).GetCell(5).SetText("精度");
-                        table.GetRow(0).GetCell(6).SetText("小数位数");
-                        table.GetRow(0).GetCell(7).SetText("允许空");
-                        table.GetRow(0).GetCell(8).SetText("字段说明");
-                        //内容行
-                        XWPFTableRow row = table.CreateRow();
-                        row.GetCell(0).SetText(dr["字段序号"].ToString());
-                        row.GetCell(1).SetText(dr["字段名"].ToString());
-                        row.GetCell(2).SetText(dr["主键"].ToString());
-                        row.GetCell(3).SetText(dr["类型"].ToString());
-                        row.GetCell(4).SetText(dr["长度"].ToString());
-                        row.GetCell(5).SetText(dr["精度"].ToString());
-                        row.GetCell(6).SetText(dr["小数位数"].ToString());
-                        row.GetCell(7).SetText(dr["允许空"].ToString());
-                        row.GetCell(8).SetText(dr["字段说明"].ToString());
-                        //
-                        index++;
-                    }
-                    else
-                    {
-                        if (table != null)
-                        {
-                            //内容行
-                            XWPFTableRow row = table.CreateRow();
-                            row.GetCell(0).SetText(dr["字段序号"].ToString());
-                            row.GetCell(1).SetText(dr["字段名"].ToString());
-                            row.GetCell(2).SetText(dr["主键"].ToString());
-                            row.GetCell(3).SetText(dr["类型"].ToString());
-                            row.GetCell(4).SetText(dr["长度"].ToString());
-                            row.GetCell(5).SetText(dr["精度"].ToString());
-                            row.GetCell(6).SetText(dr["小数位数"].ToString());
-                            row.GetCell(7).SetText(dr["允许空"].ToString());
-                            row.GetCell(8).SetText(dr["字段说明"].ToString());
-                        }
-                    }
-                }
-                //输出保存
-                string docAllPath = Application.StartupPath + "\\SqlDBDicFile.docx";
-                if (File.Exists(docAllPath))
-                {
-                    File.Delete(docAllPath);
-                }
-                fs = File.OpenWrite(docAllPath);
-                doc.Write(fs);
-                doc.Close();
-                return retMsg;
-            }
-            catch (Exception ex)
-            {
-                retMsg.isSuccess = false;
-                retMsg.Messages = ex.Message;
-                return retMsg;
-            }
-            finally
-            {
-                fs.Close();
-                fs.Dispose();
-            }
-        }
-
+        
         #endregion
 
         #region 委托方法
@@ -328,7 +183,6 @@ ORDER BY d.name, 字段序号";
                 this.Cursor = currCursor;
                 return;
             }
-            //retMsg = WriteDoc();
             retMsg = WriteMarkdown();
             if (retMsg.isSuccess)
             {
