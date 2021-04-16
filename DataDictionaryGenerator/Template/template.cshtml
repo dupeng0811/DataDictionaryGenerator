@@ -1,0 +1,19 @@
+﻿@using System.Linq
+@using DataDictionaryGenerator.Model
+@model System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<TableColumnInfo>>
+@if (Model.Any())
+{
+foreach (string tableName in Model.Keys)
+{
+<text>## @tableName</text>
+@:| **字段名** | **主键** | **类型** | **允许空** | **字段说明** | 
+@:| --- | --- | --- | --- | --- |
+    if (Model[tableName].Any())
+    {
+    foreach (TableColumnInfo columnInfo in Model[tableName])
+    {
+<text>|</text> @columnInfo.Name <text>|</text> @(columnInfo.IsPrimary) <text>|</text> @columnInfo.Type <text>|</text> @columnInfo.AllowNull <text>|</text> @columnInfo.Description <text>| </text>
+    }
+    }
+    }
+    }
